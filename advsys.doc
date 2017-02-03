@@ -1,0 +1,1188 @@
+
+
+
+
+
+
+                      ADVSYS - An Adventure Writing System
+
+                                  Version 1.2
+
+                                 by David Betz
+                               18 Garrison Drive
+                               Bedford, NH 03110
+                             (603) 472-2389 (home)
+
+                                 July 14, 1986
+
+                       Copyright (c) 1986, by David Betz
+                              All Rights Reserved
+        Permission is hereby granted for unrestricted non-commercial use
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 2
+
+
+        INTRODUCTION
+
+        ADVSYS is a special purpose programming language that was
+        specifically designed to be used to write computer text
+        adventure games.  It includes a facility for defining the kinds
+        of objects that are common in adventures.  Some objects
+        represent locations on the game map, some objects represent
+        things that the player can find while exploring the adventure
+        world, and some objects represent other characters that the
+        adventurer can encounter during his or her journeys.  The
+        adventure language also provides a facility to define actions.
+        Actions are short sections of code that determine what happens
+        in response to a command from the player.  These two concepts,
+        "objects" and "actions" form the basis for the adventure
+        language.
+
+
+        ACKNOWLEDGEMENTS
+
+        Although I have written all of the code associated with this
+        adventure writing system, I must acknowledge the assistance of
+        one individual without whom this project would probably never
+        have reached completion.  That person is Gary McGath.  Gary was
+        interested in writing a commercial quality adventure game and I
+        convinced him to write it using my system (which was as yet
+        almost completely unspecified) instead of using a traditional
+        programming language.  The input that Gary provided during the
+        development of his game contributed significantly to the overall
+        design of the system.  I would like to thank Gary for that
+        contribution.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 3
+
+
+        USING THE SYSTEM TO WRITE AN ADVENTURE
+
+        In order to write an adventure using this system, you need to
+        write an adventure description.  This is an ordinary ASCII text
+        file containing definitions for all of the objects and actions
+        in your adventure game.  This file is used as input to the
+        adventure compiler.  The compiler takes the adventure
+        description and compiles it into a set of data structures.
+
+        In order to play an adventure written using this system, you
+        need the data structure file that was produced by the compiler
+        and the adventure interpreter program.  The interpreter uses the
+        information produced by the adventure compiler to allow a player
+        to play the adventure game.  Notice that it is not necessary for
+        the player to have access to the original adventure description
+        file.  All of the information that is necessary to play the
+        adventure game is contained within the data structure file that
+        is produced by the compiler.  This file is a binary file that
+        cannot be simply "listed" to reveal the internal workings of the
+        adventure.
+
+        The adventure compiler is called ADVCOM and the interpreter is
+        called ADVINT.  These two programs in conjunction with this
+        documentation are all that is required to write and play
+        adventure games using this system.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 4
+
+
+        RUNNING THE COMPILER
+
+        If you have created an adventure definition file called
+        "MYADV.ADV", you can compile it with the command:
+
+                A>advcom myadv
+
+        Typing this command will invoke the adventure compiler and cause
+        it to compile the file named "MYADV.ADV".  The ".ADV" extension
+        is added to the file name by the compiler.  During the process
+        of compiling the file, many messages will be printed telling
+        about the progress of the compiler.  At the end of the
+        compilation process, the compiler prints a set of statistics
+        describing the resulting data structure file.  This file will be
+        called "MYADV.DAT".  It contains the data structures needed by
+        the adventure interpreter to allow a player to play the
+        adventure game.
+
+        Note: The "A>" in the line above is the MS-DOS prompt and should
+        not be typed as part of the command.
+
+
+        RUNNING THE INTERPRETER
+
+        Assuming that you have a compiled adventure data file called
+        "MYADV.DAT", you can play the adventure by typing the command:
+
+                A>advint myadv
+
+        This command will start the adventure.  There will probably be
+        some text printed at this point describing the adventure and the
+        initial situation.  You will then be prompted to type a command.
+        The prompt is the colon character.  The format for commands is
+        described under the section about the parser.  After typing a
+        command, you will be told what happened as a result of your
+        command, your new situation will be described and you will begin
+        the loop again.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 5
+
+
+        ADVENTURE DESCRIPTION FILE FORMAT
+
+            All adventure description files contain a collection of
+            statements.  These statements must be formed according to
+            the following rules:
+
+
+        The adventure definition statement:
+
+            All adventure definitions should have an ADVENTURE
+            statement.  This statement gives the name of the adventure
+            and the version number of the definition file.  Each
+            adventure should have a unique name.  This name is used to
+            identify "saved position" files and insure that only files
+            that correspond to the current adventure are restored.  The
+            version number allows the author to have many versions of
+            the same adventure during development and guarantee that
+            "save" files from one version aren't restored into another
+            version.
+
+              (ADVENTURE name version)
+
+          Example:
+
+              (ADVENTURE sample 1)
+
+
+        Vocabulary statements:
+
+            These statements add words to the adventure vocabulary.
+
+              (ADJECTIVE word*)
+              (PREPOSITION word*)
+              (CONJUNCTION word*)
+              (ARTICLE word*)
+              (SYNONYM word synonym*)
+
+          Examples:
+
+              (ADJECTIVE red blue)
+              (CONJUNCTION and)
+              (SYNONYM big large)
+
+          Note:
+
+              Words are also added to the vocabulary by the object
+              and action definitions using the NOUN, ADJECTIVE, VERB
+              and PREPOSITION statements.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 6
+
+
+        Constant definition statement:
+
+              (DEFINE name value)
+
+          Examples:
+
+              (DEFINE what "I don't understand what you're saying!\n")
+              (DEFINE max-load 100)
+
+
+        Function definition statement:
+
+              (DEFINE (function-name [arg-name]* [&aux tmp-name*]) expr*)
+
+          Example:
+
+              (DEFINE (factorial n)
+                (IF (< n 2)
+                  1
+                  (* n (factorial (- n 1)))))
+
+
+        Variable definition statement:
+
+              (VARIABLE variable-name*)
+
+          Example:
+
+              (VARIABLE score i j)
+
+
+        Property name definition statement:
+
+              (PROPERTY property-name*)
+
+          Example:
+
+              (PROPERTY weight value)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 7
+
+
+        Comments:
+
+            Comments begin with a semi-colon and end with the end of the
+            line.
+
+          Example:
+
+              ; this is a comment
+
+
+        Include files:
+
+            Any line that begins with a "@" causes the inclusion of
+            another file.  The file name immediately follows the at-sign
+            and extends to the end of the line.  Only one level of
+            include is supported.
+
+          Example:
+
+              @basic.adv
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 8
+
+
+        Handler definition statements:
+
+              (INIT expr*)
+              (UPDATE expr*)
+              (BEFORE expr*)
+              (AFTER expr*)
+              (ERROR expr*)
+
+          Example:
+
+              (INIT
+                (print "Welcome to the sample adventure!\n"))
+
+
+        Handlers:
+
+            All activity within an adventure game is controlled by a
+            built-in handler loop.  Each of the handlers in the loop
+            contains code that is provided by the adventure author.  The
+            sequencing from handler to handler is provided by the
+            adventure system itself.
+
+            The first handler that is called in an adventure game is the
+            INIT handler.  It prints some sort of introductory text and
+            initializes all global variables in order to start the
+            adventure game.
+
+            After the INIT handler has completed, the normal loop is
+            entered.  It starts with the UPDATE handler.  The UPDATE
+            handler prepares for the player's next turn.  It should
+            describe the player's location if it has changed since the
+            last turn.  After the UPDATE handler completes, the parser
+            is called.  It prompts the player for a command, parses the
+            command, sets the built-in parser varaibles and exits.  Then
+            the BEFORE handler is called.  It is called before the
+            action associated with the command to allow the adventure
+            author to inspect the parser variables before proceeding to
+            the action itself.  After the BEFORE handler completes, the
+            action itself is called (or whatever action is stored in the
+            built-in variable $ACTION when the BEFORE handler
+            completes).  When the action completes, the AFTER handler is
+            called to give the author a chance to handle events that
+            happen only at the end of a successful turn.  The ERROR
+            handler is called when the parser detects an error.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System             Page 9
+
+
+        The handler loop:
+
+            INIT
+             |
+             v
+            UPDATE<----------+
+             |               |
+             v               |
+            parse--->ERROR---+
+             |               |
+             v               |
+            BEFORE           |
+             |               |
+             v               |
+            action           |
+             |               |
+             v               |
+            AFTER------------+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 10
+
+
+        The parser:
+
+            The parser handles all commands from the player.  It prompts
+            the player when it is ready for a new command.  The prompt
+            is the colon character.  When the player has typed a
+            command, the parser breaks the command into phrases.  The
+            parser recognizes the following command forms:
+
+              [actor,] verb
+              [actor,] verb dobjects
+              [actor,] verb dobjects preposition iobject
+              [actor,] verb iobject dobjects
+
+            Where:
+
+              actor             ==> a noun phrase
+              verb              ==> the verb phrase (1 or 2 words)
+              dobjects          ==> dobject [conjunction dobject]*
+              dobject           ==> a noun phrase
+              preposition       ==> a preposition
+              iobject           ==> a noun phrase
+              noun phrase       ==> [article] [adjective]* noun
+
+           Examples:
+
+              Look
+              Take the red magic sword
+              Take the red sword and the blue bottle
+              Give the troll the red sword
+              Give the red sword to the troll
+              Troll, give me the sword
+
+           Notes:
+
+              Square brackets enclose optional phrases.  An asterisk
+              indicates zero or more of the preceeding element.
+
+              The fourth form above is treated as if the player had
+              typed:
+
+                [actor,] verb dobject "to" iobject
+
+            Once the parser has broken the command into phrases, it
+            assigns each noun phrase a number.  It stores the number of
+            the actor noun phrase in the built-in variable $ACTOR.  It
+            stores the first direct object noun phrase number in the
+            variable $DOBJECT.  It stores the number of direct objects
+            in the variable $NDOBJECTS.  It stores the indirect object
+            noun phrase number in the variable $IOBJECT.  If any of the
+            noun phrases is missing from the command, the corresponding
+            variable is set to NIL.  The parser saves the verb phrase
+            and preposition to use when determining which action to use
+            to handle the command.
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 11
+
+
+        Action definition statement:
+
+            Actions are used to handle player commands.  Each time the
+            parser finishes parsing a new command, it uses the verb
+            phrase and the preposition to locate an action to handle the
+            command.  Each action specifies a kind of template that must
+            match the command in order for the action to be called.  The
+            template consists of the words used in the verb phrase and
+            preposition and the existance of the actor, direct object
+            and indirect object noun phrases.  Once the parser finds an
+            action that matches the command, it stores the action in the
+            built-in variable $ACTION and exits.
+
+              (ACTION action-name astat*)
+                  astat:
+                      (ACTOR [flag])
+                      (VERB verb*)
+                      (DIRECT-OBJECT [flag])
+                      (PREPOSITION word*)
+                      (INDIRECT-OBJECT [flag])
+                  flag:
+                      REQUIRED  must have the corresponding np
+                      OPTIONAL  may have the corresponding np
+                      FORBIDDEN must not have the corresponding np
+                  verb:
+                      word
+                      (word word)
+
+          Example:
+
+              (ACTION take
+                (VERB take (pick up))
+                (DIRECT-OBJECT)
+                (CODE
+                  (print "You can't take the ")
+                  (print-noun $dobject)
+                  (print "!\n")))
+
+            If the ACTOR, DIRECT-OBJECT or INDIRECT-OBJECT statements
+            are left out entirely, the settings of the corresponding
+            flags are taken from the action default definitions.  If
+            there is no action default definition, the value FORBIDDEN
+            is assumed.  If any of these statements is present, but no
+            flag is specified, it is treated as if the flag REQUIRED was
+            specified.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 12
+
+
+        Action default definition statement:
+
+            This statement defines default values for the ACTOR, DIRECT-
+            OBJECT and INDIRECT-OBJECT flags.
+
+              (DEFAULT dstat*)
+                  dstat:
+                      (ACTOR [flag])
+                      (DIRECT-OBJECT [flag])
+                      (INDIRECT-OBJECT [flag])
+                  flag:
+                      REQUIRED
+                      OPTIONAL
+                      FORBIDDEN
+
+          Example:
+
+              (DEFAULT
+                (ACTOR OPTIONAL))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 13
+
+
+        Object definition statements:
+
+            The object definition statements are used to define
+            individual objects and classes of objects.  The most basic
+            way of defining an object is using the (OBJECT ...)
+            statement.  This defines an object which has no parent
+            class.
+
+            It is also possible to create a class of objects that share
+            information.  A class is defined just like a normal object.
+            It is given nouns, adjectives and properties.  In addition,
+            a class may have class properties.  These are properties
+            that are shared amongst all instances of the class.  In
+            order to create an instance of a class, the (class-name ...)
+            form is used.  This creates an instance of the named class.
+            An instance will inherit all nouns and adjectives from its
+            parent class.  It will also inherit all class properties
+            defined in the parent (and its parents).  Any normal
+            properties defined in the parent class will be copied to the
+            new object.  The copies will have the same values that the
+            parent has, but it is possible for the instance to have
+            property definitions that override these values.  Instances
+            may also have additional nouns, adjectives and properties.
+
+              (OBJECT object-name ostat*)
+              (class-name object-name ostat*)
+                  ostat:
+                      (NOUN word*)
+                      (ADJECTIVE word*)
+                      (PROPERTY [property-name value]*)
+                      (CLASS-PROPERTY [property-name value]*)
+                      (METHOD (selector [arg-name]* [&aux tmp-name*])
+                          expr*)
+                  class-name:
+                      the name of a previously defined object
+
+          Examples:
+
+              (OBJECT sword
+                (NOUN sword weapon)
+                (CLASS-PROPERTY
+                  is-weapon T)
+                (PROPERTY
+                  weight 10
+                  value 5
+                  damage 20))
+
+              (sword red-sword
+                (ADJECTIVE red)
+                (PROPERTY
+                  damage 25))
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 14
+
+
+        Expressions:
+
+              (+ expr expr)     add
+              (- expr expr)     subtract
+              (* expr expr)     multiply
+              (/ expr expr)     divide
+              (% expr expr)     remainder
+
+              (& expr expr)     bit-wise and
+              (| expr expr)     bit-wise or
+              (~ expr)          bit-wise complement
+
+            These arithmetic functions operate on integers.  As it turns
+            out, every data type in the system is represented by an
+            integer, so these functions will work with any type of
+            arguments.  They are probably only useful with integers,
+            however.
+
+              (RANDOMIZE)       reset the random number generator
+              (RAND expr)       generate a random number
+
+            These functions enable the generation of pseudo-random
+            numbers.  The (RAND n) function takes a single argument and
+            generates a random number between zero and n-1.  (RANDOMIZE)
+            resets the seed used by the random number function so that
+            each invocation of a program results in a new sequence of
+            random numbers.
+
+              (AND expr*)       logical and (short circuits)
+              (OR expr*)        logical or (short circuits)
+              (NOT expr)        logical not
+
+            These functions operate on logical values.  In this system,
+            any value that is not equal to NIL (or zero) is considered
+            true.  NIL and zero are considered false.  AND and OR
+            evaluate their arguments from left to right and stop as soon
+            as the value of the entire expression can be determined.  In
+            other words, AND stops when it encounters a false value, OR
+            stops when it encounters a true value.
+
+              (< expr expr)     less than
+              (= expr expr)     equal to
+              (> expr expr)     greater than
+
+            These functions compare integers.  They cannot be used to
+            compare strings.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 15
+
+
+              (GETP obj property-name)          get the value of a property
+              (SETP obj property-name value)    set the value of a property
+
+            These functions manipulate object properties.  They are used
+            to find the value of a property or to set the value of a
+            property.  They will also find and set the values of
+            inherited properties.  If GETP is used to find the value of
+            a property that doesn't exist for the specified object, NIL
+            is returned.  If SETP is used to set the value of a property
+            that doesn't exist, the operation is ignored.
+
+              (CLASS obj)
+
+            This function returns the class of an object.  If the object
+            was defined with an (OBJECT ...) statement, NIL will be
+            returned.  If the object was defined with the (class-name
+            ...) statement, the class object will be returned.
+
+              (MATCH obj noun-phrase-number)
+
+            This function matches an object with a noun phrase.  An
+            object matches a noun phrase if it includes all of the
+            adjectives specified in the noun phrase and also includes
+            the noun mentioned.  Both nouns and adjectives can be
+            inherited.
+
+              (YES-OR-NO)       get a yes or no answer from the player
+
+            This function waits for the player to type a line.  If the
+            line begins with a 'Y' or a 'y', the function returns T.  If
+            the line begins with anything else, the function returns
+            NIL.
+
+              (PRINT expr)                      print a string
+              (PRINT-NUMBER expr)               print a number
+              (PRINT-NOUN noun-phrase-number)   print a noun phrase
+              (TERPRI)                          terminate the print line
+
+            These functions perform various sorts of output.  PRINT
+            prints strings, PRINT-NUMBER prints numbers and PRINT-NOUN
+            prints a noun phrase.
+
+              (FINISH)          exit and continue with the AFTER handler
+              (CHAIN)           exit and continue with the next handler
+              (ABORT)           exit and continue with the UPDATE handler
+              (RESTART)         exit and restart the current game
+              (EXIT)            exit to the operating system
+
+            These functions cause the immediate termination of the
+            current handler.  FINISH causes execution to proceed with
+            the AFTER handler, CHAIN causes execution to proceed with
+            the next handler in the normal sequence, ABORT causes
+            execution to proceed with the UPDATE handler (effectively
+            aborting the current turn), RESTART restores the game to its
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 16
+
+
+            original state and starts over with the INIT handler and
+            EXIT causes an immediate exit back to the operating system.
+
+              (SAVE)            save the current game position
+              (RESTORE)         restore a saved game position
+
+            These functions allow the player to save and restore
+            positions in the game.  They prompt the player for a file
+            name and either read a saved game position from the file or
+            write the current game position to the file.
+
+              (function-name expr*)
+
+            This expression invokes a user defined function.  There
+            should be one expression for each of the formal arguments of
+            the user function.  The value of the expression is the value
+            of the last expression in the body of the user function or
+            the value passed to a RETURN statement within the function.
+
+              (SEND object selector [expr]*)
+
+            This expression sends a message to an object.  The "object"
+            expression should evaluate to an object.  The selector
+            should match a method selector for that object or one of its
+            super-classes.  The matching method is invoked with the
+            specified expressions as arguments.  Also, the implied
+            argument SELF will refer to the object receiving the
+            message.
+
+              (SEND-SUPER selector [expr]*)
+
+            This expression sends a message to the super-class of the
+            current object.  It can only be used within a method and it
+            will cause the message to be passed up the class heirarchy
+            to the super-class of the object refered to by SELF.
+
+              (SETQ variable value)
+
+            This expression sets the value of a user variable.
+
+              (COND [(test expr*)]*)            execute conditionally
+              (IF test then-expr [else-expr])   traditional if-then-else
+              (WHILE test expr*)                conditional iteration
+              (PROGN expr*)                     block construct
+              (RETURN [expr])                   return from a function
+
+            These statements are control constructs.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 17
+
+
+        Primary expressions:
+
+            integer             (digits preceeded by an optional sign)
+            string              (characters enclosed in double quotes)
+            action-name         (an action name)
+            object-name         (an object or class name)
+            property-name       (a property name)
+            constant-name       (a defined constant or function)
+            variable-name       (a variable name)
+
+            Since an adventure description contains a large quantity of
+            running text, the format for specifying string constants is
+            somewhat extended from normal programming languages.  In
+            this system, a string is enclosed in double quotes.  If the
+            end of line occurs before the closing quote within a string,
+            it is treated as if it were a space.  Any number of
+            consecutive spaces is collapsed into a single space.  Also,
+            the character pair "\n" is used to represent the "end of
+            line" character, the pair "\t" is used to represent the tab
+            character and the pair "\\" is used to represent the
+            backslash character.
+
+          Examples:
+
+                "This is a string.\n"
+                "This
+                 is
+                 a
+                 string.\n"
+
+            Both of the examples above represent the same string.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ADVSYS            An Adventure Writing System            Page 18
+
+
+        Definitions of symbols used above:
+
+            expr                an expression
+            value               an expression
+            test                an expression (NIL means false, anything else is true)
+            then-expr           an expression
+            else-expr           an expression
+            obj                 an expression that evaluates to an object
+            property-name       an expression that evaluates to a property name
+            noun-phrase-number  an expression that evaluates to a noun phrase number
+            variable            a variable name
+            T                   true
+            NIL                 false
+
+
+        Built-in variables set by the parser:
+
+            $ACTOR              (actor noun phrase number)
+            $ACTION             (action)
+            $DOBJECT            (first direct object noun phrase number)
+            $NDOBJECTS          (number of direct object noun phrases)
+            $IOBJECT            (indirect object noun phrase number)
+
+
+        Other built-in variables:
+
+            $OCOUNT             (total number of objects in the system)
+
+
+        CURRENT COMPILER LIMITS
+
+            500         words
+            500         objects
+            20          properties per object
+            200         actions or functions
+            16384       bytes of code
+            16384       bytes of data
+            262144      bytes of text
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

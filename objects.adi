@@ -1,0 +1,624 @@
+; This is the object-oriented runtime package
+; For AdvSys version 1.3
+; by David Betz
+; May 17, 1987
+
+; ****************************
+; HANDLER FORWARD DECLARATIONS
+; ****************************
+
+(action init)
+(action update)
+(action before)
+(action after)
+(action error)
+
+; ****************************
+; EXTENDED FUNCTION DEFINTIONS
+; ****************************
+
+(extended randomize	0)
+(extended rand		1)
+(extended picture	2)
+(extended resource	3)
+
+; ********************
+; PROPERTY DEFINITIONS
+; ********************
+
+; These properties will be used for connections between locations
+(property
+  north			; the location to the north
+  south			; the location to the south
+  east			; the location to the east
+  west			; the location to the west
+  up			; the location above
+  down)			; the location below
+
+; Basic object properties
+(property
+  initial-location	; the initial location of a "thing"
+  description		; the "long" description of a location
+  short-description)	; the "short" description of a location
+
+; Connection properties
+(property
+  parent		; the parent of an object
+  sibling		; the next sibling of an object
+  child)		; the first child of an object
+
+; Location properties
+(property
+  visited)		; true if location has been visited by player
+
+; Portal properties
+(property
+  closed		; true if the portal is closed
+  locked		; true if the portal is locked
+  key			; key to unlock the portal
+  other-side)		; the other portal in a pair
+
+; **********************
+; VOCABULARY DEFINITIONS
+; **********************
+
+; Some abbreviations for common commands
+(synonym north n)
+(synonym south s)
+(synonym east e)
+(synonym west w)
+(synonym inventory i)
+
+; Define the basic vocabulary
+(conjunction and)
+(article the that)
+
+; ********************
+; VARIABLE DEFINITIONS
+; ********************
+
+(variable
+  curloc		; the location of the player character
+  %actor		; the actor object
+  %dobject		; the direct object
+  %iobject)		; the indirect object
+
+; *************
+; THE MAIN LOOP
+; *************
+
+; handler status codes
+(define ST-ABORT 1)
+(define ST-CHAIN 2)
+(define ST-FINISH 3)
+
+; Handle a single command
+(define (single &aux sts)
+  (setq sts (catch 1 (before) ST-CHAIN))
+  (if (= sts ST-ABORT)
+    (return NIL)
+    (if (= sts ST-CHAIN)
+      (progn
+        (if (= (catch 1 ($action) ST-CHAIN) ST-ABORT)
+          (return NIL))
+        (catch 1 (after))))))
+
+; The main loop
+(main
+  (catch 1 (init))
+  (while t
+    (catch 1 (update))
+    (if (parse)
+      (if (single)
+        (while (and (next) (single))))
+      (catch 1 (error)))))
+
+; ****************************
+; HANDLER SEQUENCING FUNCTIONS
+; ****************************
+
+; Abort this turn
+(define (abort)
+  (throw 1 ST-ABORT))
+
+; Exit from this handler, chain to the next
+(define (chain)
+  (throw 1 ST-CHAIN))
+
+; Finish this turn (go directly to the after handler
+(define (finish)
+  (throw 1 ST-FINISH))
+
+; *********************
+; CONNECTION PRIMITIVES
+; *********************
+
+; Connect an object to a parent
+(define (connect p c)
+  (setp c parent p)
+  (setp c sibling (getp p child))
+  (setp p child c))
+
+; Connect all objects to their initial parents
+(define (connect-all &aux obj maxp1 par)
+  (setq obj 1)
+  (setq maxp1 (+ $ocount 1))
+  (while (< obj maxp1)
+    (if (setq par (getp obj initial-location))
+      (connect par obj))
+    (setq obj (+ obj 1))))
+
+; Disconnect an object from its current parent
+(define (disconnect obj &aux this prev)
+  (setq this (getp (getp obj parent) child))
+  (setq prev nil)
+  (while this
+    (if (= this obj)
+      (progn
+	(if prev
+	  (setp prev sibling (getp this sibling))
+	  (setp (getp this parent) child (getp this sibling)))
+	(setp this parent nil)
+	(return)))
+    (setq prev this)
+    (setq this (getp this sibling))))
+
+; Print the contents of an object (used by "look")
+(define (print-contents obj prop &aux desc)
+  (setq obj (getp obj child))
+  (while obj
+    (if (setq desc (getp obj prop))
+      (progn
+	(print " ")
+	(print desc)))
+    (setq obj (getp obj sibling))))
+
+; List the contents of an object (used for "inventory")
+(define (list-contents obj prop &aux desc)
+  (setq obj (getp obj child))
+  (while obj
+    (if (setq desc (getp obj prop))
+      (progn
+	(print "\t")
+	(print desc)
+	(terpri)))
+    (setq obj (getp obj sibling))))
+
+; ************************
+; OBJECT CLASS DEFINITIONS
+; ************************
+
+; ***********************
+; The "basic-thing" class
+; ***********************
+
+(object basic-thing
+  (property
+    parent nil		; the parent of this object
+    sibling nil))	; the next sibling of this object
+
+; ***************************
+; The "location" object class
+; ***************************
+
+(object location
+  (property
+    child nil		; the first object in this location
+    visited nil)	; has the player been here yet?
+  (method (knock? obj)
+    T)
+  (method (enter obj)
+    (connect self obj)
+    T)
+  (method (leave obj dir &aux loc)
+    (if (setq loc (getp self dir))
+      (if (send loc knock? obj)
+        (progn
+          (disconnect obj)
+          (send loc enter obj)))
+      (progn
+        (print "There is no exit in that direction.\n")
+        nil)))
+  (method (describe)
+    (if (getp self visited)
+      (print (getp self short-description))
+      (progn
+        (print (getp self description))
+        (print-contents self description)
+        (setp self visited t)))
+    (terpri)))
+
+
+; ******************
+; The "portal" class
+; ******************
+
+(basic-thing portal
+  (method (knock? obj)
+    (if (getp self closed)
+      (progn
+        (print "The ")
+        (print (getp self short-description))
+        (print " is closed!\n")
+        nil)
+      T))
+  (method (enter obj)
+    (connect (getp (getp self other-side) parent) obj))
+  (method (open)
+    (if (not (getp self closed))
+      (progn
+        (print "The ")
+        (print (getp self short-description))
+        (print " is already open!\n")
+        nil)
+      (if (getp self locked)
+        (progn
+          (print "The ")
+          (print (getp self short-description))
+          (print " is locked!\n")
+          nil)
+        (progn
+          (setp self closed nil)
+          T))))
+  (method (close)
+    (if (getp self closed)
+      (progn
+        (print "The ")
+        (print (getp self short-description))
+        (print " is already closed!\n")
+        nil)
+      (progn
+        (setp self closed T)
+        T)))
+  (method (lock thekey)
+    (if (not (getp self closed))
+      (progn
+        (print "The ")
+        (print (getp self short-description))
+        (print " is not closed!\n")
+        nil)
+      (if (getp self locked)
+        (progn
+          (print "The ")
+          (print (getp self short-description))
+          (print " is already locked!\n")
+          nil)
+        (if (not (= thekey (getp self key)))
+          (progn
+            (print "It doesn't fit the lock!\n")
+            nil)
+          (progn
+            (setp self locked t)
+            T)))))
+  (method (unlock thekey)
+    (if (not (getp self closed))
+      (progn
+        (print "The ")
+        (print (getp self short-description))
+        (print " is already open!\n")
+        nil)
+      (if (not (getp self locked))
+        (progn
+          (print "The ")
+          (print (getp self short-description))
+          (print " is not locked!\n")
+           nil)
+        (if (not (= thekey (getp self key)))
+          (progn
+            (print "It doesn't fit the lock!\n")
+            nil)
+          (progn
+            (setp self locked nil)
+            T))))))
+
+; *****************
+; The "actor" class
+; *****************
+
+(basic-thing actor
+  (property
+    child nil)		; the first "thing" carried by this actor
+  (method (move dir)
+    (send (getp self parent) leave self dir))
+  (method (take obj)
+    (disconnect obj)
+    (connect self obj))
+  (method (drop obj)
+    (disconnect obj)
+    (connect (getp self parent) obj))
+  (method (carrying? obj)
+    (= (getp obj parent) self))
+  (method (inventory)
+    (cond ((getp %actor child)
+           (print "You are carrying:\n")
+           (list-contents %actor short-description))
+          (T (print "You are empty-handed.\n")))))
+
+; *****************
+; The "thing" class (things that can be taken)
+; *****************
+
+(basic-thing thing
+  (class-property
+    takeable t))
+
+; ****************************
+; The "stationary-thing" class (things that can't be moved)
+; ****************************
+
+(basic-thing stationary-thing)
+
+; ***********************
+; MISCELLANEOUS FUNCTIONS
+; ***********************
+
+; Complain about a noun phrase
+(define (complain head n tail)
+  (print head)
+  (print-noun n)
+  (print tail)
+  (abort))
+
+; Find an object in a location
+(define (findobject loc n &aux this found)
+  (setq this (getp loc child))
+  (setq found nil)
+  (while this
+    (if (match this n)
+      (if found
+        (complain "I don't know which " n " you mean!\n")
+	(setq found this)))
+    (setq this (getp this sibling)))
+  found)
+
+; Find an object in the player's current location
+;  (or in the player's inventory)
+(define (in-location n &aux obj)
+  (if (or (setq obj (findobject curloc n))
+          (setq obj (findobject %actor n)))
+    obj
+    (complain "I don't see a " n " here!\n")))
+
+; Find an object in the player's inventory
+;  (or in the player's current location)
+(define (in-pocket n &aux obj)
+  (if (or (setq obj (findobject %actor n))
+          (setq obj (findobject curloc n)))
+    obj
+    (complain "You don't have a " n "!\n")))
+
+; ***************
+; ACTION DEFAULTS
+; ***************
+
+(default
+  (actor optional))
+
+; ******************
+; ACTION DEFINITIONS
+; ******************
+
+(action look
+  (verb look)
+  (code
+    (setp curloc visited nil)
+    (send curloc describe)))
+
+(action a-take
+  (verb take get (pick up))
+  (direct-object)
+  (code
+    (setq %dobject (in-location $dobject))
+    (if (getp %dobject takeable)
+      (progn
+        (if (send %actor carrying? %dobject)
+          (complain "You are already carrying the " $dobject "!\n"))
+        (send %actor take %dobject)
+        (print-noun $dobject)
+        (print " taken.\n"))
+      (complain "You can't take the " $dobject "!\n"))))
+
+(action take-err
+  (verb take get (pick up))
+  (code
+    (print "Take what?\n")))
+
+(action a-drop
+  (verb drop (put down))
+  (direct-object)
+  (code
+    (setq %dobject (in-pocket $dobject))
+    (if (send %actor carrying? %dobject)
+      (progn
+        (send %actor drop %dobject)
+	(print-noun $dobject)
+	(print " dropped.\n"))
+      (complain "You aren't carrying the " $dobject "!\n"))))
+
+(action drop-err
+  (verb drop (put down))
+  (code
+    (print "Drop what?\n")))
+
+(action give
+  (verb give)
+  (direct-object)
+  (preposition to)
+  (indirect-object)
+  (code
+    (setq %dobject (in-pocket $dobject))
+    (setq %iobject (in-location $iobject))
+    (if (send %actor carrying? %dobject)
+      (progn
+        (send %actor drop %dobject)
+        (send %iobject take %dobject)
+	(print-noun $dobject)
+	(print " given.\n"))	
+      (complain "You aren't carrying the " $dobject "!\n"))))
+
+(action give-err
+  (verb give)
+  (direct-object optional)
+  (code
+    (if $dobject
+      (complain "Give the " $dobject " to who?\n"))
+      (print "Give what?\n")))
+
+(action a-inventory
+  (verb inventory)
+  (code
+    (send %actor inventory)))
+
+; ***************
+; PORTAL COMMANDS
+; ***************
+
+(action a-open
+  (verb open)
+  (direct-object)
+  (code
+    (setq %dobject (in-location $dobject))
+    (send %dobject open)))
+
+(action open-err
+  (verb open)
+  (code
+    (print "Open what?\n")))
+
+(action a-close
+  (verb close)
+  (direct-object)
+  (code
+    (setq %dobject (in-location $dobject))
+    (send %dobject close)))
+
+(action close-err
+  (verb close)
+  (code
+    (print "Close what?\n")))
+
+(action a-lock
+  (verb lock)
+  (direct-object)
+  (preposition with)
+  (indirect-object)
+  (code
+    (setq %dobject (in-location $dobject))
+    (setq %iobject (in-pocket $iobject))
+    (send %dobject lock %iobject)))
+
+(action lock-err
+  (verb lock)
+  (direct-object optional)
+  (code
+    (if $dobject
+      (complain "Lock the " $dobject " with what?\n"))
+      (print "Lock what?\n")))
+
+(action a-unlock
+  (verb unlock)
+  (direct-object)
+  (preposition with)
+  (indirect-object)
+  (code
+    (setq %dobject (in-location $dobject))
+    (setq %iobject (in-pocket $iobject))
+    (send %dobject unlock %iobject)))
+
+(action unlock-err
+  (verb unlock)
+  (direct-object optional)
+  (code
+    (if $dobject
+      (complain "Unlock the " $dobject " with what?\n"))
+      (print "Unlock what?\n")))
+
+; *********************
+; GAME CONTROL COMMANDS
+; *********************
+
+(action save
+  (verb save)
+  (code
+    (save)))
+
+(action restore
+  (verb restore)
+  (code
+    (restore)))
+
+(action restart
+  (verb restart)
+  (code
+    (restart)))
+
+(action quit
+  (verb quit)
+  (code
+    (print "Are you sure you want to quit? ")
+    (if (yes-or-no)
+      (exit))))
+
+; **************
+; TRAVEL ACTIONS
+; **************
+
+(action go-north
+  (verb north (go north))
+  (code
+    (send %actor move north)))
+
+(action go-south
+  (verb south (go south))
+  (code
+    (send %actor move south)))
+
+(action go-east
+  (verb east (go east))
+  (code
+    (send %actor move east)))
+
+(action go-west
+  (verb west (go west))
+  (code
+    (send %actor move west)))
+
+(action go-up
+  (verb up (go up))
+  (code
+    (send %actor move up)))
+
+(action go-down
+  (verb down (go down))
+  (code
+    (send %actor move down)))
+
+; *******************
+; HANDLER DEFINITIONS
+; *******************
+
+(define (init)
+  (print welcome)
+  (connect-all)
+  (setq curloc nil))
+
+(define (update)
+  (if (not (= (getp adventurer parent) curloc))
+    (progn
+      (setq curloc (getp adventurer parent))
+      (send curloc describe))))
+
+(define (before)
+  (setq %actor adventurer)
+  (if $actor
+    (progn
+      (setq %actor (in-location $actor))
+      (if (not (= (class %actor) actor))
+        (complain "You can't talk to a " $actor "!\n")))))
+
+(define (after))
+(define (error))
+
+
+
+                                                                                                                             
